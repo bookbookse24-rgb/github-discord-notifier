@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: github-discord-notifier
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 3001
+      - key: GITHUB_WEBHOOK_SECRET
+        sync: false
+      - key: DISCORD_WEBHOOK_URL
+        sync: false
