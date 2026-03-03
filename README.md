@@ -50,20 +50,26 @@ Connect your GitHub repo to Render.com
 ## Supported Events
 
 - `issues` - Issue opened, closed, labeled
+- `issue_comment` - Comments on issues (new, edited)
 - `pull_request` - PR opened, closed, merged
 - `pull_request_review` - Reviews (approved, changes requested, commented)
 - `push` - Code pushes
 - `release` - New releases
 - `commit_comment` - Commit comments
+- `workflow_run` - GitHub Actions workflow status
+- `star` - New stars
 
 ## Example Notifications
 
 ```
 📥 New Issue #42: Bug in login flow
+💬 Issue Comment on #42: "Thanks for reporting!"
 👀 PR #128: Review requested
 ✅ PR #130: Approved
 🔄 PR #131: Changes requested
 🚀 New Release v1.2.0
+⚙️ Workflow CI: completed (success)
+⭐ New star from @developer
 ```
 
 ## License
