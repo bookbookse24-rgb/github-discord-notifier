@@ -68,6 +68,8 @@ Connect your GitHub repo to Render.com
 - `deployment` - Deployment created
 - `deployment_status` - Deployment success/failure/pending
 - `star` - New stars
+- `security_advisories` - GitHub security vulnerability advisories
+- `security_advisory` - Security advisory published
 
 ## Example Notifications
 
