@@ -18,7 +18,15 @@ Get real-time GitHub notifications in your Discord server.
 
 ## Pricing
 
-**$9/month** - Unlimited repositories, all events
+**Free Tier**: 1 repo, basic events (issues, PRs, pushes)
+**Pro ($9/month)**: Unlimited repositories, all events including:
+- Issue comments (created, edited)
+- GitHub Actions workflow status
+- PR review states
+- Release announcements
+- Priority support
+
+👉 [Get Pro on Gumroad](https://your-gumroad-link.com)
 
 ## Quick Start
 
