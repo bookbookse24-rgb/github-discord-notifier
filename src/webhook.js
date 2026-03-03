@@ -8,6 +8,7 @@ const starFormatter = require('./formatters/star');
 const reviewFormatter = require('./formatters/review');
 const issueCommentFormatter = require('./formatters/issueComment');
 const workflowRunFormatter = require('./formatters/workflowRun');
+const deploymentFormatter = require('./formatters/deployment');
 
 function verifySignature(req) {
   const sig = req.headers['x-hub-signature-256'];
@@ -44,6 +45,10 @@ async function handleWebhook(req, res) {
       embed = issueCommentFormatter.format(payload);
     } else if (event === 'workflow_run' && ['completed', 'in_progress', 'queued', 'requested'].includes(payload.action)) {
       embed = workflowRunFormatter.format(payload);
+    } else if (event === 'deployment' && ['created'].includes(payload.action)) {
+      embed = deploymentFormatter.format(payload);
+    } else if (event === 'deployment_status' && ['success', 'failure', 'pending', 'error'].includes(payload.deployment_status.state)) {
+      embed = deploymentFormatter.format(payload);
     }
 
     if (embed) {

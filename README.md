@@ -65,6 +65,8 @@ Connect your GitHub repo to Render.com
 - `release` - New releases
 - `commit_comment` - Commit comments
 - `workflow_run` - GitHub Actions workflow status
+- `deployment` - Deployment created
+- `deployment_status` - Deployment success/failure/pending
 - `star` - New stars
 
 ## Example Notifications
