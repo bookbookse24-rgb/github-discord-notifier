@@ -56,6 +56,12 @@ async function handleWebhook(req, res) {
 
     if (embed) {
       await sendEmbed(webhookFor(event), embed);
+      // Track notification (inline to avoid circular deps)
+      const repoFullName = payload.repository?.full_name || 'unknown';
+      const today = new Date().toISOString().split('T')[0];
+      const key = `${repoFullName}:${event}:${today}`;
+      if (!global.notifStore) global.notifStore = new Map();
+      global.notifStore.set(key, (global.notifStore.get(key) || 0) + 1);
       console.log(`✅ Sent ${event} embed to Discord`);
     }
   } catch (err) {

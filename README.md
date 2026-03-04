@@ -26,7 +26,7 @@ Get real-time GitHub notifications in your Discord server.
 - Release announcements
 - Priority support
 
-👉 [Get Pro on Gumroad](https://your-gumroad-link.com)
+⏳ Pro access coming soon - [Join waitlist](https://forms.gle/waitlist)
 
 ## Quick Start
 
