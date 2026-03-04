@@ -14,9 +14,15 @@ const securityAdvisoryFormatter = require('./formatters/securityAdvisory');
 
 function verifySignature(req) {
   const sig = req.headers['x-hub-signature-256'];
-  if (!sig || !process.env.GITHUB_WEBHOOK_SECRET) return true; // skip if no secret set
-  const digest = 'sha256=' + crypto.createHmac('sha256', process.env.GITHUB_WEBHOOK_SECRET).update(JSON.stringify(req.body)).digest('hex');
-  return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(digest));
+  // If GITHUB_WEBHOOK_SECRET is set, signature is required
+  if (process.env.GITHUB_WEBHOOK_SECRET) {
+    if (!sig) return false;
+    const digest = 'sha256=' + crypto.createHmac('sha256', process.env.GITHUB_WEBHOOK_SECRET).update(JSON.stringify(req.body)).digest('hex');
+    return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(digest));
+  }
+  // No secret set - allow but warn (legacy mode)
+  console.warn('⚠️ GITHUB_WEBHOOK_SECRET not set - webhook authentication disabled');
+  return true;
 }
 
 const webhookFor = (event) => process.env[`DISCORD_WEBHOOK_${event.toUpperCase()}_URL`] || process.env.DISCORD_WEBHOOK_URL;
@@ -31,7 +37,7 @@ async function handleWebhook(req, res) {
   try {
     let embed = null;
 
-    if (event === 'pull_request' && ['opened','closed','review_requested'].includes(payload.action)) {
+    if (event === 'pull_request' && ['opened','closed','synchronize','merged','review_requested'].includes(payload.action)) {
       embed = prFormatter.format(payload);
     } else if (event === 'push' && !payload.ref.includes('tags')) {
       embed = pushFormatter.format(payload);
