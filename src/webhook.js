@@ -10,6 +10,28 @@ const issueCommentFormatter = require('./formatters/issueComment');
 const workflowRunFormatter = require('./formatters/workflowRun');
 const deploymentFormatter = require('./formatters/deployment');
 const checkRunFormatter = require('./formatters/checkRun');
+const branchFormatter = require('./formatters/branch');
+const checkSuiteFormatter = require('./formatters/checkSuite');
+const forkFormatter = require('./formatters/fork');
+
+// Simple rate limiting (in-memory, per webhook URL)
+const rateLimits = new Map();
+const FREE_LIMIT = 100; // per month
+
+function checkRateLimit(webhookUrl) {
+  if (!webhookUrl) return { allowed: true }; // no webhook = test mode
+  
+  const now = new Date();
+  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const key = `${webhookUrl}:${monthKey}`;
+  
+  const count = rateLimits.get(key) || 0;
+  if (count >= FREE_LIMIT) {
+    return { allowed: false, limit: FREE_LIMIT, current: count };
+  }
+  rateLimits.set(key, count + 1);
+  return { allowed: true, limit: FREE_LIMIT, current: count + 1 };
+}
 
 function verifySignature(req) {
   const sig = req.headers['x-hub-signature-256'];
@@ -52,9 +74,24 @@ async function handleWebhook(req, res) {
       embed = deploymentFormatter.format(payload);
     } else if (event === 'check_run' && ['completed', 'in_progress', 'queued', 'requested', 'created'].includes(payload.action)) {
       embed = checkRunFormatter.format(payload);
+    } else if (event === 'create' && payload.ref_type === 'branch') {
+      embed = branchFormatter.format(payload);
+    } else if (event === 'delete' && payload.ref_type === 'branch') {
+      embed = branchFormatter.format(payload);
+    } else if (event === 'check_suite' && ['completed', 'in_progress', 'queued', 'requested'].includes(payload.action)) {
+      embed = checkSuiteFormatter.format(payload);
+    } else if (event === 'fork') {
+      embed = forkFormatter.format(payload);
     }
 
     if (embed) {
+      // Check rate limit before sending
+      const rateCheck = checkRateLimit(webhookFor(event));
+      if (!rateCheck.allowed) {
+        console.log(`⛔ Rate limit reached (${rateCheck.current}/${rateCheck.limit}) - skipping ${event} notification`);
+        return;
+      }
+      
       await sendEmbed(webhookFor(event), embed);
       // Track notification (inline to avoid circular deps)
       const repoFullName = payload.repository?.full_name || 'unknown';

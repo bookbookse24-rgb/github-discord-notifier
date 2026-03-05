@@ -4,10 +4,13 @@ Get real-time GitHub notifications in your Discord server.
 
 ## Features
 
-- **Multi-Event Support**: Issues, PRs, reviews, comments, pushes, releases
+- **Multi-Event Support**: Issues, PRs, reviews, comments, pushes, releases, branches
 - **PR Review States**: Approved, changes requested, commented, pending
+- **Branch Events**: Get notified when branches are created or deleted
 - **Customizable**: Choose which events trigger notifications
 - **Easy Setup**: GitHub App or webhook configuration
+- **Rate Limiting**: Free tier: 100 notifications/month
+- **Waitlist Signup**: Built-in email capture for early access
 
 ## Use Cases
 
@@ -15,18 +18,25 @@ Get real-time GitHub notifications in your Discord server.
 - Issue tracking alerts
 - Deployment notifications
 - Release announcements
+- Branch management alerts
 
 ## Pricing
 
-**Free Tier**: 1 repo, basic events (issues, PRs, pushes)
-**Pro ($9/month)**: Unlimited repositories, all events including:
-- Issue comments (created, edited)
-- GitHub Actions workflow status
-- PR review states
-- Release announcements
-- Priority support
+**Free Tier**: 100 notifications/month, all events
+**Pro ($9/month)**: Unlimited notifications, priority support
 
-⏳ Pro access coming soon - [Join waitlist](https://forms.gle/waitlist)
+[Join waitlist](#) to get early access!
+
+## API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Landing page with waitlist signup |
+| `/subscribe` | POST | Join waitlist (`{"email": "you@example.com"}`) |
+| `/subscribers/count` | GET | Get subscriber counts |
+| `/stats/:owner/:repo` | GET | Get notification stats |
+| `/webhook` | POST | GitHub webhook receiver |
+| `/health` | GET | Health check |
 
 ## Quick Start
 
@@ -39,8 +49,10 @@ Get real-time GitHub notifications in your Discord server.
 | Variable | Description |
 |----------|-------------|
 | `DISCORD_WEBHOOK_URL` | Your Discord webhook URL |
+| `DISCORD_WEBHOOK_PULL_REQUEST_URL` | Optional: separate webhook for PRs |
+| `DISCORD_WEBHOOK_ISSUES_URL` | Optional: separate webhook for issues |
 | `GITHUB_WEBHOOK_SECRET` | Webhook secret (optional) |
-| `EVENTS` | Comma-separated events (issues,pull_request,release) |
+| `PORT` | Server port (default: 3001) |
 
 ## Deploy
 
@@ -68,6 +80,11 @@ Connect your GitHub repo to Render.com
 - `deployment` - Deployment created
 - `deployment_status` - Deployment success/failure/pending
 - `star` - New stars
+- `create` - Branch created (ref_type: branch)
+- `delete` - Branch deleted (ref_type: branch)
+- `check_run` - Check run status changes
+- `check_suite` - Check suite status (GitHub Actions CI)
+- `fork` - Repository forked
 
 ## Example Notifications
 
@@ -79,6 +96,8 @@ Connect your GitHub repo to Render.com
 🔄 PR #131: Changes requested
 🚀 New Release v1.2.0
 ⚙️ Workflow CI: completed (success)
+✅ Check Suite main: success (run #142)
+🍴 New Fork: username/repo
 ⭐ New star from @developer
 ```
 
