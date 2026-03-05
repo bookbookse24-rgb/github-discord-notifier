@@ -11,6 +11,7 @@ const workflowRunFormatter = require('./formatters/workflowRun');
 const deploymentFormatter = require('./formatters/deployment');
 const checkRunFormatter = require('./formatters/checkRun');
 const securityAdvisoryFormatter = require('./formatters/securityAdvisory');
+const discussionFormatter = require('./formatters/discussion');
 
 function verifySignature(req) {
   const sig = req.headers['x-hub-signature-256'];
@@ -63,6 +64,8 @@ async function handleWebhook(req, res) {
       embed = securityAdvisoryFormatter.format(payload);
     } else if (event === 'security_advisory' && ['published'].includes(payload.action)) {
       embed = securityAdvisoryFormatter.format(payload);
+    } else if (event === 'discussion' && ['created', 'edited', 'answered', 'unanswered'].includes(payload.action)) {
+      embed = discussionFormatter.format(payload);
     }
 
     if (embed) {
