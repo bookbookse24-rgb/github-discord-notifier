@@ -85,6 +85,7 @@ Connect your GitHub repo to Render.com
 - `check_run` - Check run status changes
 - `check_suite` - Check suite status (GitHub Actions CI)
 - `fork` - Repository forked
+- `discussion` - New discussions, edits, answered/unanswered
 
 ## Example Notifications
 
@@ -99,6 +100,7 @@ Connect your GitHub repo to Render.com
 ✅ Check Suite main: success (run #142)
 🍴 New Fork: username/repo
 ⭐ New star from @developer
+💬 New Discussion: "How to configure..."
 ```
 
 ## License

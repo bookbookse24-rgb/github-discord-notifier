@@ -13,6 +13,7 @@ const checkRunFormatter = require('./formatters/checkRun');
 const branchFormatter = require('./formatters/branch');
 const checkSuiteFormatter = require('./formatters/checkSuite');
 const forkFormatter = require('./formatters/fork');
+const discussionFormatter = require('./formatters/discussion');
 
 // Simple rate limiting (in-memory, per webhook URL)
 const rateLimits = new Map();
@@ -82,6 +83,8 @@ async function handleWebhook(req, res) {
       embed = checkSuiteFormatter.format(payload);
     } else if (event === 'fork') {
       embed = forkFormatter.format(payload);
+    } else if (event === 'discussion' && ['created', 'edited', 'answered', 'unanswered'].includes(payload.action)) {
+      embed = discussionFormatter.format(payload);
     }
 
     if (embed) {
