@@ -441,29 +441,168 @@ app.post('/create-checkout-session', async (req, res) => {
   }
 });
 
+// Test Discord webhook endpoint
+app.post('/api/test-webhook', async (req, res) => {
+  const { webhookUrl, eventType } = req.body;
+  
+  if (!webhookUrl) {
+    return res.status(400).json({ error: 'webhookUrl required' });
+  }
+  
+  // Validate Discord webhook URL format
+  if (!webhookUrl.includes('discord.com/api/webhooks/')) {
+    return res.status(400).json({ error: 'Invalid Discord webhook URL format' });
+  }
+  
+  // Build test payload based on event type
+  const testPayloads = {
+    push: {
+      content: '🔔 **GitHub Webhook Test**',
+      embeds: [{
+        title: '💻 New Push Received',
+        color: 0x00ff00,
+        fields: [
+          { name: 'Repository', value: 'test/repo', inline: true },
+          { name: 'Branch', value: 'main', inline: true },
+          { name: 'Author', value: 'test-user', inline: true },
+          { name: 'Commits', value: '2 commits', inline: true }
+        ],
+        timestamp: new Date().toISOString()
+      }]
+    },
+    pr: {
+      content: '🔔 **GitHub Webhook Test**',
+      embeds: [{
+        title: '📝 Pull Request Opened',
+        color: 0x5865F2,
+        fields: [
+          { name: 'Repository', value: 'test/repo', inline: true },
+          { name: 'PR #', value: '42', inline: true },
+          { name: 'Author', value: 'test-user', inline: true },
+          { name: 'Title', value: 'Test PR for webhook verification' }
+        ],
+        timestamp: new Date().toISOString()
+      }]
+    },
+    issue: {
+      content: '🔔 **GitHub Webhook Test**',
+      embeds: [{
+        title: '🐛 Issue Opened',
+        color: 0xFF0000,
+        fields: [
+          { name: 'Repository', value: 'test/repo', inline: true },
+          { name: 'Issue #', value: '1', inline: true },
+          { name: 'Author', value: 'test-user', inline: true },
+          { name: 'Title', value: 'Test issue for webhook verification' },
+          { name: 'Labels', value: 'bug', inline: true }
+        ],
+        timestamp: new Date().toISOString()
+      }]
+    },
+    release: {
+      content: '🔔 **GitHub Webhook Test**',
+      embeds: [{
+        title: '🚀 New Release Published',
+        color: 0xFFA500,
+        fields: [
+          { name: 'Repository', value: 'test/repo', inline: true },
+          { name: 'Tag', value: 'v1.0.0', inline: true },
+          { name: 'Author', value: 'test-user', inline: true }
+        ],
+        timestamp: new Date().toISOString()
+      }]
+    }
+  };
+  
+  const payload = testPayloads[eventType || 'push'];
+  
+  try {
+    const fetch = (await import('node-fetch')).default;
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    
+    if (response.ok) {
+      res.json({ 
+        ok: true, 
+        message: 'Test notification sent successfully! Check your Discord channel.',
+        eventType: eventType || 'push'
+      });
+    } else {
+      const errorText = await response.text();
+      res.status(400).json({ 
+        ok: false, 
+        error: 'Discord rejected the webhook',
+        details: errorText,
+        hint: 'Make sure the webhook URL is correct and the bot has permission to send messages'
+      });
+    }
+  } catch (e) {
+    res.status(500).json({ 
+      ok: false, 
+      error: 'Failed to send test notification',
+      details: e.message 
+    });
+  }
+});
+
 // Health check endpoint for Render/Railway
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    version: '1.2.0'
+    version: '1.3.0'
   });
 });
 
-// Metrics endpoint for monitoring
+// Metrics endpoint for monitoring (Prometheus-style)
 app.get('/metrics', (req, res) => {
   const subscribers = loadSubscribers();
   const proCount = subscribers.filter(s => isProTier(s.tier)).length;
+  const repoConfigs = loadRepoConfigs();
+  
+  let totalNotifs = 0;
+  for (const count of notifStore.values()) {
+    totalNotifs += count;
+  }
+  
+  res.set('Content-Type', 'text/plain');
+  res.send(`# GitHub Discord Notifier Metrics
+github_discord_notifier_uptime_seconds ${Math.floor(process.uptime())}
+github_discord_notifier_total_notifications ${totalNotifs}
+github_discord_notifier_free_users ${subscribers.length - proCount}
+github_discord_notifier_pro_users ${proCount}
+github_discord_notifier_configured_repos ${Object.keys(repoConfigs).length}
+github_discord_notifier_memory_rss_bytes ${Math.round(process.memoryUsage().rss)}
+`);
+});
+
+// JSON metrics endpoint
+app.get('/metrics/json', (req, res) => {
+  const subscribers = loadSubscribers();
+  const proCount = subscribers.filter(s => isProTier(s.tier)).length;
+  const repoConfigs = loadRepoConfigs();
+  
+  let totalNotifs = 0;
+  for (const count of notifStore.values()) {
+    totalNotifs += count;
+  }
   
   res.json({
-    totalNotifications: totalNotifications,
-    freeUsers: subscribers.length - proCount,
-    proUsers: proCount,
-    uptime: process.uptime()
+    service: 'github-discord-notifier',
+    version: '1.3.0',
+    uptime_seconds: Math.floor(process.uptime()),
+    total_notifications: totalNotifs,
+    free_users: subscribers.length - proCount,
+    pro_users: proCount,
+    configured_repos: Object.keys(repoConfigs).length,
+    memory_rss_mb: Math.round(process.memoryUsage().rss / 1024 / 1024)
   });
 });
 
 app.post('/webhook', handleWebhook);
 
-app.listen(PORT, '0.0.0.0', () => console.log(`🔔 GitHub Discord Notifier v1.2.0 running on port ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`🔔 GitHub Discord Notifier v1.3.0 running on port ${PORT}`));
