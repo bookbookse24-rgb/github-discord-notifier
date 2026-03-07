@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Discord Notifier - Pricing</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f0f0f; color: #fff; min-height: 100vh; }
+        .container { max-width: 900px; margin: 0 auto; padding: 60px 20px; }
+        h1 { text-align: center; font-size: 2.5rem; margin-bottom: 10px; }
+        .subtitle { text-align: center; color: #888; margin-bottom: 50px; }
+        .plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px; }
+        .plan { background: #1a1a1a; border-radius: 16px; padding: 40px; border: 1px solid #333; }
+        .plan.featured { border-color: #6366f1; position: relative; }
+        .plan.featured::before { content: 'MOST POPULAR'; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: #6366f1; padding: 4px 16px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; }
+        .plan-name { font-size: 1.25rem; margin-bottom: 10px; }
+        .plan-price { font-size: 3rem; font-weight: bold; margin-bottom: 20px; }
+        .plan-price span { font-size: 1rem; color: #888; font-weight: normal; }
+        .plan-features { list-style: none; margin-bottom: 30px; }
+        .plan-features li { padding: 10px 0; color: #ccc; display: flex; align-items: center; gap: 10px; }
+        .plan-features li::before { content: '✓'; color: #6366f1; }
+        .btn { display: block; padding: 16px; border-radius: 8px; text-align: center; text-decoration: none; font-weight: 600; transition: all 0.2s; }
+        .btn-primary { background: #6366f1; color: #fff; }
+        .btn-primary:hover { background: #5558e3; }
+        .btn-outline { background: transparent; border: 1px solid #444; color: #fff; }
+        .btn-outline:hover { border-color: #666; }
+        .footer { text-align: center; margin-top: 60px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>GitHub Discord Notifier</h1>
+        <p class="subtitle">Get real-time GitHub notifications in your Discord channels</p>
+        
+        <div class="plans">
+            <div class="plan">
+                <div class="plan-name">Free</div>
+                <div class="plan-price">$0<span>/month</span></div>
+                <ul class="plan-features">
+                    <li>Up to 3 repositories</li>
+                    <li>Push notifications only</li>
+                    <li>Public repositories</li>
+                    <li>Community support</li>
+                </ul>
+                <a href="#" class="btn btn-outline">Get Started</a>
+            </div>
+            
+            <div class="plan featured">
+                <div class="plan-name">Pro</div>
+                <div class="plan-price">$29<span>/month</span></div>
+                <ul class="plan-features">
+                    <li>Unlimited repositories</li>
+                    <li>All event types</li>
+                    <li>Private repositories</li>
+                    <li>Custom filters</li>
+                    <li>Priority support</li>
+                    <li>99.9% uptime SLA</li>
+                </ul>
+                <a href="#" class="btn btn-primary" id="checkout-btn">Start Free Trial</a>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Questions? Contact support@githubtools.dev</p>
+        </div>
+    </div>
+    
+    <script>
+        // Stripe checkout - uncomment when Stripe is configured
+        // const stripe = Stripe('pk_test_YOUR_KEY');
+        // document.getElementById('checkout-btn').addEventListener('click', async () => {
+        //     const response = await fetch('/create-checkout-session', { method: 'POST' });
+        //     const session = await response.json();
+        //     await stripe.redirectToCheckout({ sessionId: session.id });
+        // });
+    </script>
+</body>
+</html>

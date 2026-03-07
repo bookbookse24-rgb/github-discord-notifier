@@ -1,5 +1,7 @@
 const crypto = require('crypto');
 const { sendEmbed } = require('./discord');
+const fs = require('fs');
+const path = require('path');
 const prFormatter = require('./formatters/pullRequest');
 const pushFormatter = require('./formatters/push');
 const issuesFormatter = require('./formatters/issues');
@@ -12,6 +14,66 @@ const deploymentFormatter = require('./formatters/deployment');
 const checkRunFormatter = require('./formatters/checkRun');
 const securityAdvisoryFormatter = require('./formatters/securityAdvisory');
 const discussionFormatter = require('./formatters/discussion');
+const forkFormatter = require('./formatters/fork');
+const branchFormatter = require('./formatters/branch');
+const repositoryFormatter = require('./formatters/repository');
+
+const REPO_CONFIG_FILE = path.join(__dirname, '..', 'repo-config.json');
+
+function loadRepoConfigs() {
+  try {
+    if (fs.existsSync(REPO_CONFIG_FILE)) {
+      return JSON.parse(fs.readFileSync(REPO_CONFIG_FILE, 'utf8'));
+    }
+  } catch (e) {}
+  return {};
+}
+
+function getRepoConfig(repoFullName) {
+  const configs = loadRepoConfigs();
+  return configs[repoFullName] || null;
+}
+
+// Check if notification should be sent based on filter rules
+function shouldNotify(config, event, payload) {
+  if (!config) return { allow: true };
+  
+  // Branch filter
+  if (config.branches && config.branches.length > 0) {
+    const branch = payload.ref?.replace('refs/heads/', '') || 
+                  payload.pull_request?.head?.ref || 
+                  payload.repository?.default_branch || '';
+    if (!config.branches.includes(branch)) {
+      return { allow: false, reason: 'branch filter' };
+    }
+  }
+  
+  // Label filter (for issues/PRs)
+  if (config.labels && config.labels.length > 0) {
+    const labels = payload.pull_request?.labels || payload.issue?.labels || [];
+    const hasLabel = labels.some(l => config.labels.includes(l.name || l));
+    if (!hasLabel && labels.length > 0) {
+      return { allow: false, reason: 'label filter' };
+    }
+  }
+  
+  // Author filter
+  if (config.excludeAuthors && config.excludeAuthors.length > 0) {
+    const author = payload.sender?.login || payload.pull_request?.user?.login || '';
+    if (config.excludeAuthors.includes(author)) {
+      return { allow: false, reason: 'author filter' };
+    }
+  }
+  
+  // Event type filter
+  if (config.events && config.events.length > 0) {
+    if (!config.events.includes(event)) {
+      return { allow: false, reason: 'event filter' };
+    }
+  }
+  
+  return { allow: true };
+}
 
 function verifySignature(req) {
   const sig = req.headers['x-hub-signature-256'];
@@ -26,7 +88,13 @@ function verifySignature(req) {
   return true;
 }
 
-const webhookFor = (event) => process.env[`DISCORD_WEBHOOK_${event.toUpperCase()}_URL`] || process.env.DISCORD_WEBHOOK_URL;
+const webhookFor = (event, repoConfig) => {
+  // Use per-repo webhook URL if configured (Pro feature)
+  if (repoConfig?.webhookUrl) {
+    return repoConfig.webhookUrl;
+  }
+  return process.env[`DISCORD_WEBHOOK_${event.toUpperCase()}_URL`] || process.env.DISCORD_WEBHOOK_URL;
+};
 
 async function handleWebhook(req, res) {
   if (!verifySignature(req)) return res.status(401).json({ error: 'Invalid signature' });
@@ -34,6 +102,19 @@ async function handleWebhook(req, res) {
   const event = req.headers['x-github-event'];
   const payload = req.body;
   res.json({ ok: true });
+
+  // Get repo config for per-repo settings
+  const repoFullName = payload.repository?.full_name || 
+                       payload.repository?.owner?.login + '/' + payload.repository?.name ||
+                       '';
+  const repoConfig = getRepoConfig(repoFullName);
+
+  // Check filter rules
+  const filterResult = shouldNotify(repoConfig, event, payload);
+  if (!filterResult.allow) {
+    console.log(`⏭️ Skipped ${event} for ${repoFullName}: ${filterResult.reason}`);
+    return;
+  }
 
   try {
     let embed = null;
@@ -66,11 +147,19 @@ async function handleWebhook(req, res) {
       embed = securityAdvisoryFormatter.format(payload);
     } else if (event === 'discussion' && ['created', 'edited', 'answered', 'unanswered'].includes(payload.action)) {
       embed = discussionFormatter.format(payload);
+    } else if (event === 'fork') {
+      embed = forkFormatter.format(payload);
+    } else if (event === 'create' && ['branch', 'tag'].includes(payload.ref_type)) {
+      embed = branchFormatter.format(payload);
+    } else if (event === 'delete' && ['branch', 'tag'].includes(payload.ref_type)) {
+      embed = branchFormatter.format(payload, true);
+    } else if (event === 'repository' && ['publicized', 'privatized'].includes(payload.action)) {
+      embed = repositoryFormatter.format(payload);
     }
 
     if (embed) {
-      await sendEmbed(webhookFor(event), embed);
-      console.log(`✅ Sent ${event} embed to Discord`);
+      await sendEmbed(webhookFor(event, repoConfig), embed);
+      console.log(`✅ Sent ${event} embed to Discord${repoConfig ? ' (per-repo config)' : ''}`);
     }
   } catch (err) {
     console.error('Webhook error:', err.message);

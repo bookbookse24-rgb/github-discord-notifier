@@ -36,6 +36,64 @@ function saveSubscriber(email, tier = 'free') {
   return !existing;
 }
 
+const NOTIFICATION_LIMIT_FREE = 100;
+const PRO_TIERS = ['pro', 'business', 'enterprise'];
+
+function isProTier(tier) {
+  return PRO_TIERS.includes(tier);
+}
+
+function checkNotificationLimit(email, tier) {
+  if (isProTier(tier)) return { allowed: true, remaining: 'unlimited' };
+  
+  const stats = getUserNotificationStats(email);
+  const today = new Date().toISOString().split('T')[0];
+  const todayCount = stats.daily || 0;
+  
+  if (todayCount >= NOTIFICATION_LIMIT_FREE) {
+    return { allowed: false, remaining: 0, upgrade: true };
+  }
+  return { allowed: true, remaining: NOTIFICATION_LIMIT_FREE - todayCount };
+}
+
+function getUserNotificationStats(email) {
+  const subscribers = loadSubscribers();
+  const sub = subscribers.find(s => s.email === email);
+  if (!sub) return { daily: 0, total: 0 };
+  
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  const monthlyCount = sub.notifications?.monthly || [];
+  
+  const daily = monthlyCount.filter(d => d.date === today).reduce((sum, d) => sum + d.count, 0);
+  const total = monthlyCount.reduce((sum, d) => sum + d.count, 0);
+  
+  return { daily, total };
+}
+
+function incrementNotificationCount(email) {
+  const subscribers = loadSubscribers();
+  const sub = subscribers.find(s => s.email === email);
+  if (!sub) return;
+  
+  const today = new Date().toISOString().split('T')[0];
+  if (!sub.notifications) sub.notifications = { monthly: [] };
+  
+  const todayEntry = sub.notifications.monthly.find(d => d.date === today);
+  if (todayEntry) {
+    todayEntry.count++;
+  } else {
+    sub.notifications.monthly.push({ date: today, count: 1 });
+  }
+  
+  // Keep only last 30 days
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  sub.notifications.monthly = sub.notifications.monthly.filter(d => new Date(d.date) >= thirtyDaysAgo);
+  
+  fs.writeFileSync(SUBSCRIBERS_FILE, JSON.stringify(subscribers, null, 2));
+}
+
 // Simple in-memory notification tracking
 const notifStore = new Map();
 
@@ -214,6 +272,103 @@ app.get('/inquiries', (req, res) => {
   res.json({ total: inquiries.length, inquiries });
 });
 
+// Per-repo configuration (Pro feature)
+const REPO_CONFIG_FILE = path.join(__dirname, '..', 'repo-config.json');
+
+function loadRepoConfigs() {
+  try {
+    if (fs.existsSync(REPO_CONFIG_FILE)) {
+      return JSON.parse(fs.readFileSync(REPO_CONFIG_FILE, 'utf8'));
+    }
+  } catch (e) {}
+  return {};
+}
+
+function saveRepoConfig(repoFullName, config) {
+  const configs = loadRepoConfigs();
+  configs[repoFullName] = { ...configs[repoFullName], ...config, updated: new Date().toISOString() };
+  fs.writeFileSync(REPO_CONFIG_FILE, JSON.stringify(configs, null, 2));
+}
+
+function getRepoConfig(repoFullName) {
+  const configs = loadRepoConfigs();
+  return configs[repoFullName] || null;
+}
+
+// Check if notification should be sent based on filter rules
+function shouldNotify(config, event, payload) {
+  if (!config) return { allow: true };
+  
+  // Branch filter
+  if (config.branches && config.branches.length > 0) {
+    const branch = payload.ref?.replace('refs/heads/', '') || '';
+    if (!config.branches.includes(branch)) {
+      return { allow: false, reason: 'branch filter' };
+    }
+  }
+  
+  // Label filter (for issues/PRs)
+  if (config.labels && config.labels.length > 0) {
+    const labels = payload.pull_request?.labels || payload.issue?.labels || [];
+    const hasLabel = labels.some(l => config.labels.includes(l.name || l));
+    if (!hasLabel) {
+      return { allow: false, reason: 'label filter' };
+    }
+  }
+  
+  // Author filter
+  if (config.excludeAuthors && config.excludeAuthors.length > 0) {
+    const author = payload.sender?.login || payload.pull_request?.user?.login || '';
+    if (config.excludeAuthors.includes(author)) {
+      return { allow: false, reason: 'author filter' };
+    }
+  }
+  
+  // Event type filter
+  if (config.events && config.events.length > 0) {
+    if (!config.events.includes(event)) {
+      return { allow: false, reason: 'event filter' };
+    }
+  }
+  
+  return { allow: true };
+}
+
+// API endpoints for repo configuration (Pro feature)
+app.post('/api/repos/:owner/:repo/config', (req, res) => {
+  const { owner, repo } = req.params;
+  const { webhookUrl, branches, labels, excludeAuthors, events, email } = req.body;
+  
+  // Check tier
+  if (email) {
+    const subscribers = loadSubscribers();
+    const sub = subscribers.find(s => s.email === email);
+    if (!sub || !isProTier(sub.tier)) {
+      return res.status(403).json({ error: 'Pro tier required for per-repo config' });
+    }
+  }
+  
+  const repoFullName = `${owner}/${repo}`;
+  saveRepoConfig(repoFullName, { webhookUrl, branches, labels, excludeAuthors, events });
+  
+  res.json({ ok: true, message: `Configuration saved for ${repoFullName}` });
+});
+
+app.get('/api/repos/:owner/:repo/config', (req, res) => {
+  const { owner, repo } = req.params;
+  const repoFullName = `${owner}/${repo}`;
+  const config = getRepoConfig(repoFullName);
+  
+  if (!config) {
+    return res.json({ configured: false });
+  }
+  
+  // Don't expose webhook URL
+  const safeConfig = { ...config };
+  delete safeConfig.webhookUrl;
+  res.json({ configured: true, ...safeConfig });
+});
+
 // Stats endpoint
 app.get('/stats/:owner/:repo', (req, res) => {
   const { owner, repo } = req.params;
@@ -223,6 +378,92 @@ app.get('/stats/:owner/:repo', (req, res) => {
   });
 });
 
+// User dashboard endpoint
+app.get('/api/dashboard', (req, res) => {
+  const { email } = req.query;
+  if (!email) {
+    return res.status(400).json({ error: 'Email required' });
+  }
+  
+  const subscribers = loadSubscribers();
+  const sub = subscribers.find(s => s.email === email);
+  if (!sub) {
+    return res.status(404).json({ error: 'Subscriber not found' });
+  }
+  
+  const stats = getUserNotificationStats(email);
+  const configs = loadRepoConfigs();
+  const repoCount = Object.keys(configs).length;
+  
+  res.json({
+    email: sub.email,
+    tier: sub.tier,
+    joined: sub.joined,
+    notifications: stats,
+    repoConfigs: repoCount,
+    isPro: isProTier(sub.tier)
+  });
+});
+
+// Stripe checkout endpoint (optional - only works if STRIPE_SECRET_KEY is set)
+let stripe = null;
+try {
+  stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+} catch (e) {
+  console.log('⚠️ Stripe not configured - checkout disabled');
+}
+
+app.post('/create-checkout-session', async (req, res) => {
+  if (!stripe) {
+    return res.status(503).json({ error: 'Stripe not configured' });
+  }
+  
+  const { email, tier, priceId } = req.body;
+  
+  try {
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [{
+        price: priceId || process.env.STRIPE_PRO_PRICE_ID,
+        quantity: 1,
+      }],
+      mode: 'subscription',
+      success_url: `${req.headers.origin}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${req.headers.origin}/pricing`,
+      customer_email: email,
+      metadata: { email, tier: tier || 'pro' }
+    });
+    
+    res.json({ url: session.url, sessionId: session.id });
+  } catch (err) {
+    console.error('Stripe error:', err.message);
+    res.status(500).json({ error: 'Failed to create checkout session' });
+  }
+});
+
+// Health check endpoint for Render/Railway
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    version: '1.2.0'
+  });
+});
+
+// Metrics endpoint for monitoring
+app.get('/metrics', (req, res) => {
+  const subscribers = loadSubscribers();
+  const proCount = subscribers.filter(s => isProTier(s.tier)).length;
+  
+  res.json({
+    totalNotifications: totalNotifications,
+    freeUsers: subscribers.length - proCount,
+    proUsers: proCount,
+    uptime: process.uptime()
+  });
+});
+
 app.post('/webhook', handleWebhook);
 
-app.listen(PORT, '0.0.0.0', () => console.log(`🔔 GitHub Discord Notifier running on port ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`🔔 GitHub Discord Notifier v1.2.0 running on port ${PORT}`));
