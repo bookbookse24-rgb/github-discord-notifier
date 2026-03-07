@@ -1,7 +1,8 @@
-title: "Built a GitHub → Discord notifier with per-repo routing (free + paid tiers)"
+---
+title: "Built a GitHub → Discord notifier with per-repo routing (free + paid tiers) - Now with 18+ events"
 author: devto
- subreddit: programming
-    ---
+subreddit: programming
+---
 
 **Background**
 
@@ -12,15 +13,22 @@ Got tired of all my repo notifications dumping into one Discord channel. Existin
 A webhook-based GitHub Discord notifier with:
 - Per-repo channel routing (route repo A to channel X, repo B to channel Y)
 - Filters: branch, label, author
-- 14 event types: issues, PRs, reviews, releases, security advisories, stars, workflow runs, deployments
+- **18+ event types**: issues, PRs, reviews, releases, security advisories, stars, workflow runs, deployments, forks, branch/tag create/delete, repo visibility, discussions
+- **New in v1.2.0**: Health check + metrics endpoints
 - Free tier: 1 repo, 100/month
 - Pro ($29/mo): unlimited repos, all filters
 
 **Tech stack**: Node.js, Express, Discord webhooks
 
+**New events in v1.2.0:**
+- 🍴 Fork notifications
+- 🌿 Branch/tag created/deleted  
+- 🔒 Repository made public/private
+- 💬 GitHub Discussions
+- ⚙️ Health check `/health` and `/metrics` endpoints
+
 **Links**:
-- GitHub: [repo link]
-- Demo notification formats in README
+- GitHub: https://github.com/bookbookse24-rgb/github-discord-notifier
 
 **Question for the thread**: What GitHub notification tool are you using? What's missing that would make you switch?
 

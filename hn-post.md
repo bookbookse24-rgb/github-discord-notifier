@@ -1,4 +1,4 @@
-# I built a GitHub → Discord notifier with per-repo routing and filters
+# I built a GitHub → Discord notifier with per-repo routing and filters (now with 18+ events)
 
 After frustrations with existing GitHub Discord integrations, I built one that actually solves real problems:
 
@@ -10,20 +10,19 @@ After frustrations with existing GitHub Discord integrations, I built one that a
 **What I built:**
 - Route different repos to different Discord channels
 - Filter by branch, label, or author
-- Support for 14+ event types (issues, PRs, reviews, releases, security advisories, stars, workflow runs, deployments...)
+- Support for 18+ event types (issues, PRs, reviews, releases, security advisories, stars, workflow runs, deployments, forks, branch/tag create/delete, repo visibility changes, discussions...)
+- **New in v1.2.0**: Health check endpoint + metrics for deployment monitoring
 - Free tier: 1 repo, 100 notifications/month
 - Pro ($29/mo): unlimited repos, all filters, priority support
 
 **Tech:** Node.js, Express, Discord webhooks
 
-Would love feedback. Been thinking about adding:
-- GitHub App OAuth (instead of manual webhook setup)
-- Slack support
-- Custom notification templates
+**New Events Added:**
+- 🍴 Fork notifications
+- 🌿 Branch/tag created/deleted
+- 🔒 Repository made public/private
+- 💬 GitHub Discussions
 
-Link: [GitHub repo]
+Link: https://github.com/bookbookse24-rgb/github-discord-notifier
 
-Curious - what GitHub notification tools are you using? What missing features would make you switch?
-
----
-Edit: Added deployment docs for Render and Docker
+Would love feedback. What GitHub notification tools are you using? What missing features would make you switch?
