@@ -96,6 +96,14 @@ const webhookFor = (event, repoConfig) => {
   return process.env[`DISCORD_WEBHOOK_${event.toUpperCase()}_URL`] || process.env.DISCORD_WEBHOOK_URL;
 };
 
+const threadFor = (event, repoConfig) => {
+  // Use per-repo thread ID if configured (Pro feature)
+  if (repoConfig?.threadId) {
+    return repoConfig.threadId;
+  }
+  return null;
+};
+
 async function handleWebhook(req, res) {
   if (!verifySignature(req)) return res.status(401).json({ error: 'Invalid signature' });
 
@@ -158,7 +166,7 @@ async function handleWebhook(req, res) {
     }
 
     if (embed) {
-      await sendEmbed(webhookFor(event, repoConfig), embed);
+      await sendEmbed(webhookFor(event, repoConfig), embed, threadFor(event, repoConfig));
       console.log(`✅ Sent ${event} embed to Discord${repoConfig ? ' (per-repo config)' : ''}`);
     }
   } catch (err) {

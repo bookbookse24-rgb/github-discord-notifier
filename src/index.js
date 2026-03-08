@@ -337,7 +337,7 @@ function shouldNotify(config, event, payload) {
 // API endpoints for repo configuration (Pro feature)
 app.post('/api/repos/:owner/:repo/config', (req, res) => {
   const { owner, repo } = req.params;
-  const { webhookUrl, branches, labels, excludeAuthors, events, email } = req.body;
+  const { webhookUrl, branches, labels, excludeAuthors, events, email, threadId } = req.body;
   
   // Check tier
   if (email) {
@@ -349,7 +349,7 @@ app.post('/api/repos/:owner/:repo/config', (req, res) => {
   }
   
   const repoFullName = `${owner}/${repo}`;
-  saveRepoConfig(repoFullName, { webhookUrl, branches, labels, excludeAuthors, events });
+  saveRepoConfig(repoFullName, { webhookUrl, branches, labels, excludeAuthors, events, threadId });
   
   res.json({ ok: true, message: `Configuration saved for ${repoFullName}` });
 });
@@ -363,9 +363,10 @@ app.get('/api/repos/:owner/:repo/config', (req, res) => {
     return res.json({ configured: false });
   }
   
-  // Don't expose webhook URL
+  // Don't expose webhook URL or thread ID
   const safeConfig = { ...config };
   delete safeConfig.webhookUrl;
+  delete safeConfig.threadId;
   res.json({ configured: true, ...safeConfig });
 });
 
